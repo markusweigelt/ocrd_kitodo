@@ -35,11 +35,11 @@ jobs:
       run: make start
 
     - name: Manager ID
-      run: echo docker exec -it -u ocrd `docker container ls -qf name=ocrd-manager`
+      run: echo docker exec -u ocrd `docker container ls -qf name=ocrd-manager`
 
     - name: Manager Test
       run: |
-        docker exec -it -u ocrd `docker container ls -qf name=ocrd-manager` process_images.sh --proc-id 1 --lang deu --script Fraktur testdata-production
+        docker exec -u ocrd `docker container ls -qf name=ocrd-manager` process_images.sh --proc-id 1 --lang deu --script Fraktur testdata-production
         docker logs `docker container ls -qf name=ocrd-manager`
 
     - name: Test

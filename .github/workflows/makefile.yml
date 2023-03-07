@@ -35,4 +35,7 @@ jobs:
       run: make start
 
     - name: Test
+      run: echo docker exec -t -u ocrd `docker container ls -qf name=ocrd-manager`
+
+    - name: Test
       run: make test

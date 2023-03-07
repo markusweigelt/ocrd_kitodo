@@ -40,7 +40,7 @@ jobs:
 
     - name: Manager Test
       run: |
-        docker exec -u ocrd `docker container ls -qf name=ocrd-manager` process_images.sh --proc-id 1 --lang deu --script Fraktur testdata-production
+        docker exec -u ocrd `docker container ls -qf name=ocrd-manager` bash -c "process_images.sh --proc-id 1 --lang deu --script Fraktur testdata-production"
         docker logs `docker container ls -qf name=ocrd-manager`
 
     - name: Test

@@ -33,3 +33,6 @@ jobs:
 
     - name: Start
       run: make start
+
+    - name: Test
+      run: make test

@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Install nvidia-container-runtime
+      run: sudo apt-get install nvidia-container-runtime
+    
     - name: Checkout repository and submodules
       uses: actions/checkout@v3
       with:

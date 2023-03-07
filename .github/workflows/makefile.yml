@@ -35,7 +35,9 @@ jobs:
       run: make start
 
     - name: Manager ID
-      run: echo docker exec -u ocrd `docker container ls -qf name=ocrd-manager`
+      run: | 
+        echo docker exec -u ocrd `docker container ls -qf name=ocrd-manager`
+        docker logs `docker container ls -qf name=ocrd-manager`
 
     - name: Manager Test
       run: |

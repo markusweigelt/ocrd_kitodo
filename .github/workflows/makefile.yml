@@ -2,7 +2,7 @@ name: Makefile CI
 
 on:
   push:
-    branches: [ "make-ci" ]
+    branches: [ "update_submodule_and_add_monitor" ]
   workflow_dispatch: # run manually
 
 jobs:

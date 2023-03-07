@@ -36,7 +36,8 @@ jobs:
 
     - name: Manager ID
       run: |
-        manager=$(`docker container ls -qf name=ocrd-manager`)
+        manager=$(docker container ls -qf name=ocrd-manager)
+        echo $manager
 
     - name: Manager Test
       run: |

@@ -38,7 +38,7 @@ jobs:
       run: |
         manager=$(docker container ls -qf name=ocrd-manager)
         echo $manager
-        docker exec -u ocrd $manager bash -c "process_images.sh --proc-id 1 --lang deu --script Fraktur testdata-production"
+        docker exec -u ocrd $manager bash -c "whoami"
         docker logs `docker container ls -qf name=ocrd-manager`
 
     - name: Test

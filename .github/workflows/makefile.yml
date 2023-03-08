@@ -41,8 +41,9 @@ jobs:
         docker exec -u ocrd $manager bash -c "whoami"
         docker logs `docker container ls -qf name=ocrd-manager`
 
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-
     - name: Test
       run: make test
+    
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3

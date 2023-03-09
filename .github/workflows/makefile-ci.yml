@@ -39,7 +39,7 @@ jobs:
       run: make start
 
     - name: Test
-      run: make test
+      run: make test-kitodo
     
     - name: Setup tmate session
       if: ${{ failure() }}

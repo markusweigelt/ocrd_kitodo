@@ -13,6 +13,9 @@ COMPOSE_PROFILES ?= with-kitodo-production,with-ocrd-controller
 ifndef APP_KEY
 APP_KEY != source .env && echo $$APP_KEY # ./kitodo/.ssh/id_rsa
 endif
+ifndef APP_PORT
+APP_PORT != source .env && echo $$APP_PORT
+endif
 ifndef MANAGER_KEYS
 MANAGER_KEYS != source .env && echo $$MANAGER_KEYS # ./ocrd/manager/.ssh/authorized_keys
 endif
@@ -151,6 +154,19 @@ test test-production test-presentation clean-testdata: NETWORK=ocrd_kitodo_defau
 test test-production test-presentation clean-testdata: DATA=$(or $(MANAGER_DATA),$(shell eval echo `sed -n s/^MANAGER_DATA=//p .env`))
 test test-production test-presentation clean-testdata:
 	$(MAKE) -C _modules/ocrd_manager $@
+
+./kitodo/data/metadata/testdata-kitodo:
+	mkdir -p $@/images
+	for page in {00000009..00000014}; do \
+	  wget -P $@/images https://digital.slub-dresden.de/data/kitodo/LankDres_1760234508/LankDres_1760234508_tif/jpegs/$$page.tif.original.jpg; \
+	done
+
+test-kitodo: ./kitodo/data/metadata/testdata-kitodo
+	docker exec -t `docker container ls -qf name=kitodo-app` bash -c "/wait-for-it.sh -t 0 kitodo-app:$$APP_PORT"
+	timeout 5 docker exec -t `docker container ls -qf name=kitodo-app` bash -c '/usr/local/kitodo/scripts/script_ocr_process_dir.sh "testdata-kitodo" 1'; [[ $$? -eq 124 ]] && (echo "Asynchronous script maybe not work cause 5 second timeout is reached"; exit 1)
+	( docker logs -f `docker container ls -qf name=ocrd-manager` & ) | grep -q "KitodoActiveMQClient"
+	test -d ./kitodo/data/metadata/testdata-kitodo/ocr/alto
+	test -s ./kitodo/data/metadata/testdata-kitodo/ocr/alto/00000009.tif.original.xml
 
 define HELP
 cat <<"EOF"

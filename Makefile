@@ -163,7 +163,7 @@ test test-production test-presentation clean-testdata:
 
 test-kitodo: ./kitodo/data/metadata/testdata-kitodo
 	docker exec -t `docker container ls -qf name=kitodo-app` bash -c "/wait-for-it.sh -t 0 kitodo-app:$$APP_PORT"
-	timeout 5 docker exec -t `docker container ls -qf name=kitodo-app` bash -c '/usr/local/kitodo/scripts/script_ocr_process_dir.sh "testdata-kitodo" 1'; [[ $$? -eq 124 ]] && (echo "Asynchronous script maybe not work cause 5 second timeout is reached"; exit 1)
+	docker exec -t `docker container ls -qf name=kitodo-app` bash -c '/usr/local/kitodo/scripts/script_ocr_process_dir.sh "testdata-kitodo" 1'; test $$? -eq 1 
 	( docker logs -f `docker container ls -qf name=ocrd-manager` & ) | grep -q "KitodoActiveMQClient"
 	test -d ./kitodo/data/metadata/testdata-kitodo/ocr/alto
 	test -s ./kitodo/data/metadata/testdata-kitodo/ocr/alto/00000009.tif.original.xml

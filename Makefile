@@ -9,24 +9,55 @@ COMPOSE_PROFILES ?= with-kitodo-production,with-ocrd-controller
 
 .EXPORT_ALL_VARIABLES:
 
-# removes files and directories of prepare target
+# conditional assignment operator ?= creates deferred variables only, so use conditionals directly:
+ifndef APP_KEY
+APP_KEY != source .env && echo $$APP_KEY # ./kitodo/.ssh/id_rsa
+endif
+ifndef APP_PORT
+APP_PORT != source .env && echo $$APP_PORT
+endif
+ifndef MANAGER_KEYS
+MANAGER_KEYS != source .env && echo $$MANAGER_KEYS # ./ocrd/manager/.ssh/authorized_keys
+endif
+ifndef MANAGER_KEY
+MANAGER_KEY != source .env && echo $$MANAGER_KEY # ./ocrd/manager/.ssh/id_rsa
+endif
+ifndef MANAGER_DATA
+MANAGER_DATA != source .env && echo $$MANAGER_DATA # ./kitodo/data/metadata/
+endif
+ifndef CONTROLLER_KEYS
+CONTROLLER_KEYS != source .env && echo $$CONTROLLER_KEYS # ./ocrd/controller/.ssh/authorized_keys
+endif
+ifndef CONTROLLER_DATA
+CONTROLLER_DATA != source .env && echo $$CONTROLLER_DATA # ./ocrd/controller/data
+endif
+ifndef CONTROLLER_MODELS
+CONTROLLER_MODELS != source .env && echo $$CONTROLLER_MODELS # ./ocrd/controller/models
+endif
+ifndef CONTROLLER_CONFIG
+CONTROLLER_CONFIG != source .env && echo $$CONTROLLER_CONFIG # ./ocrd/controller/config
+endif
+
+# removes (default) files and directories of prepare target
 clean: clean-testdata
 	$(RM) -fr kitodo ocrd
 
 # private SSH key for login from Production to Manager
-prepare-keys: ./kitodo/.ssh/id_rsa
+prepare-keys: $(APP_KEY)
 # public SSH keys for logins allowed on Manager
-prepare-keys: ./ocrd/manager/.ssh/authorized_keys
+prepare-keys: $(MANAGER_KEYS)
 # private SSH key for login from Manager to Controller
-prepare-keys: ./ocrd/manager/.ssh/id_rsa
+prepare-keys: $(MANAGER_KEY)
 # public SSH keys for logins allowed on Controller
-prepare-keys: ./ocrd/controller/.ssh/authorized_keys
-# public SSH keys for logins allowed on Manager
-prepare-keys: ./ocrd/manager/.ssh/authorized_keys
+prepare-keys: $(CONTROLLER_KEYS)
 # mount-point for default data volume of kitodo-app
-prepare-keys: | ./kitodo/data/metadata/
+prepare-keys: | $(MANAGER_DATA)/
 # mount-point for default data volume of ocrd-controller
-prepare-keys: | ./ocrd/controller/data/
+prepare-keys: | $(CONTROLLER_DATA)/
+# mount-point for default model volume of ocrd-controller
+prepare-keys: | $(CONTROLLER_MODELS)/
+# mount-point for default config volume of ocrd-controller
+prepare-keys: | $(CONTROLLER_CONFIG)/
 
 # general data for Kitodo.Production
 prepare-data: ./kitodo/overwrites/data
@@ -38,7 +69,7 @@ endif
 
 ifneq ($(findstring with-ocrd-controller,$(COMPOSE_PROFILES)),)
 # initial OCR model for Controller
-prepare-examples: | ./ocrd/controller/models/ocrd-resources/ocrd-tesserocr-recognize/frak2021.traineddata
+prepare-examples: | $(CONTROLLER_MODELS)/ocrd-resources/ocrd-tesserocr-recognize/frak2021.traineddata
 endif
 
 prepare: prepare-keys prepare-data prepare-examples
@@ -47,18 +78,20 @@ prepare: prepare-keys prepare-data prepare-examples
 	mkdir -p $@
 
 # generate private SSH key for login from Production to Manager
-./kitodo/.ssh/id_rsa: | ./kitodo/.ssh/
+$(APP_KEY):
+	mkdir -p $(@D)
 	ssh-keygen -t rsa -q -f $@ -P '' -C 'Kitodo.Production key'
 ifeq ($(findstring with-kitodo-production,$(COMPOSE_PROFILES)),)
 	@echo >&2 "	You should now install the private key $@"
 	@echo >&2 "	to your own Kitodo.Production instance,"
 	@echo >&2 "	or conversely, install the existing public key ~/.ssh/id_rsa.pub"
 	@echo >&2 "	of your own Kitodo.Production instance"
-	@echo >&2 "	to ./ocrd/manager/.ssh/authorized_keys."
+	@echo >&2 "	to $(MANAGER_KEYS)."
 endif
 
 # generate private SSH key for login from Manager to Controller
-./ocrd/manager/.ssh/id_rsa: | ./ocrd/manager/.ssh/
+$(MANAGER_KEY):
+	mkdir -p $(@D)
 	ssh-keygen -t rsa -q -f $@ -P '' -C 'OCR-D manager key'
 ifeq ($(findstring with-ocrd-controller,$(COMPOSE_PROFILES)),)
 	@echo >&2 "	You should now install the public key $@.pub"
@@ -68,11 +101,13 @@ ifeq ($(findstring with-ocrd-controller,$(COMPOSE_PROFILES)),)
 endif
 
 # derive public SSH keys for logins allowed on Controller from private SSH key for login from Manager
-./ocrd/controller/.ssh/authorized_keys: ./ocrd/manager/.ssh/id_rsa | ./ocrd/controller/.ssh/
+$(CONTROLLER_KEYS): $(MANAGER_KEY)
+	mkdir -p $(@D)
 	cp $<.pub $@
 
 # derive public SSH keys for logins allowed on Controller from private SSH key for login from Manager
-./ocrd/manager/.ssh/authorized_keys: ./kitodo/.ssh/id_rsa | ./ocrd/manager/.ssh/
+$(MANAGER_KEYS): $(APP_KEY)
+	mkdir -p $(@D)
 	cp $<.pub $@
 
 # copy prebuilt data for Production (scripts, OCR-D workflows)
@@ -91,7 +126,8 @@ endif
 	cp -r ./_resources/kitodo-sample/* ./kitodo/overwrites/
 
 # install initial OCR model for Controller
-./ocrd/controller/models/ocrd-resources/ocrd-tesserocr-recognize/frak2021.traineddata: | ./ocrd/controller/models/ocrd-resources/ocrd-tesserocr-recognize/
+$(CONTROLLER_MODELS)/ocrd-resources/ocrd-tesserocr-recognize/frak2021.traineddata:
+	mkdir -p $(@D)
 	wget -O $@ https://ub-backup.bib.uni-mannheim.de/~stweil/tesstrain/frak2021/tessdata_best/frak2021-0.905.traineddata
 
 build:
@@ -111,6 +147,22 @@ config:
 
 status:
 	docker compose ps
+
+
+./kitodo/data/metadata/testdata-kitodo:
+	mkdir -p $@/images
+	for page in {00000009..00000014}; do \
+	  wget -P $@/images https://digital.slub-dresden.de/data/kitodo/LankDres_1760234508/LankDres_1760234508_tif/jpegs/$$page.tif.original.jpg; \
+	done
+
+test: test-kitodo
+
+test-kitodo: ./kitodo/data/metadata/testdata-kitodo
+	docker exec -t `docker container ls -qf name=kitodo-app` bash -c "/wait-for-it.sh -t 0 kitodo-app:$$APP_PORT"
+	docker exec -t `docker container ls -qf name=kitodo-app` bash -c '/usr/local/kitodo/scripts/script_ocr_process_dir.sh "testdata-kitodo" 1'; test $$? -eq 1
+	( timeout 5m docker logs -f `docker container ls -qf name=ocrd-manager` & ) | grep -q "KitodoActiveMQClient"
+	test -d ./kitodo/data/metadata/testdata-kitodo/ocr/alto
+	test -s ./kitodo/data/metadata/testdata-kitodo/ocr/alto/00000009.tif.original.xml
 
 test test-production test-presentation clean-testdata: NETWORK=ocrd_kitodo_default
 # if there is no shell override for MANAGER_DATA, then get it from the .env
@@ -147,7 +199,7 @@ endef
 export HELP
 help: ; @eval "$$HELP"
 
-.PHONY: clean clean-testdata prepare prepare-keys prepare-examples build build-kitodo start down config status test help
+.PHONY: clean clean-testdata clean-kitodo-testdata prepare prepare-keys prepare-examples build build-kitodo start down config status test test-kitodo help
 
 # do not search for implicit rules here:
 %.zip: ;
